@@ -222,7 +222,7 @@ public class SyncTest : MonoBehaviour
     {
         var ent = new Entity();
         ent.body = new Rectangle { Owner = ent, dimensions = new FixVector(Fix._0_50, Fix._0_50, Fix._0_50), enabled = true };
-        ent.body.position.x = Fix._5 + (Fix._5 * i);
+        ent.body.position.x = Fix._5 + (Fix._5 * inputIndex);
         movCompForDesync = new MovementComponent();
         movCompForDesync.Data.lastCheckpoint = ent.body.position;
         ent.components.Add(movCompForDesync);

@@ -1380,15 +1380,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 972e1c9b0c58eea4a9d81a1dd616ec6c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  syncTestEnabled: 0
+  syncTestEnabled: 1
   inputs: 0000000000000000
   editorPlayerIndex: 0
   otherPlayerIndex: 1
   connections:
   - port: 9090
-    ip: 127.0.0.1
-    spectator: 0
-  - port: 9091
     ip: 127.0.0.1
     spectator: 0
   visualizer: {fileID: 757268218}
