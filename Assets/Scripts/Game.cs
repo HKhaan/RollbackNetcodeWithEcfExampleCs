@@ -18,7 +18,7 @@ public static class Game
     public static int amountOfPlayers;
     public static Stopwatch frameWatch = new Stopwatch();
     public static Stopwatch idleWatch = new Stopwatch();
-    public static Action<ulong[]> RunFrameCallback;
+    public static Action<ulong[]> RunGameLogic;
     public static RollbackLogic rollbackLogic;
     public static GameStateComponent gameState;
 
@@ -90,12 +90,13 @@ public static class Game
         return true;
     }
 
-
+    public static int framesAhead;
     static public bool OnEventEventcodeTimesyncDelegate(int timesync_frames_ahead)
     {
-        Helper.Sleep(1000 * timesync_frames_ahead / 60);
+        framesAhead = timesync_frames_ahead;
         return true;
     }
+
 
     /*
      * game_advance_frame_callback --
@@ -224,8 +225,8 @@ public static class Game
         // automatically disconnect clients after 3000 ms and start our count-down timer for
         // disconnects after 1000 ms. To completely disable disconnects, simply use a value of 0
         // for ggpo_set_disconnect_timeout.
-        ReportFailure(GGPO.Session.SetDisconnectTimeout(3000));
-        ReportFailure(GGPO.Session.SetDisconnectNotifyStart(1000));
+        ReportFailure(GGPO.Session.SetDisconnectTimeout(60000));
+        ReportFailure(GGPO.Session.SetDisconnectNotifyStart(60000));
 
         int controllerId = 0;
         int playerIndex = 0;
@@ -243,7 +244,7 @@ public static class Game
                 playerInfo.controllerId = controllerId++;
                 ngs.players[playerIndex++] = playerInfo;
                 ngs.SetConnectState(handle, PlayerConnectState.Connecting);
-                ReportFailure(GGPO.Session.SetFrameDelay(handle, FRAME_DELAY));
+                //ReportFailure(GGPO.Session.SetFrameDelay(handle, FRAME_DELAY));
             }
             else if (players[i].type == GGPOPlayerType.GGPO_PLAYERTYPE_REMOTE)
             {
@@ -325,10 +326,9 @@ public static class Game
      * Advances the game state by exactly 1 frame using the inputs specified
      * for player 1 and player 2.
      */
-
     static void AdvanceFrame(ulong[] inputs, int disconnect_flags)
     {
-        RunFrameCallback(inputs);
+        RunGameLogic(inputs);
         GGPO.Session.AdvanceFrame();
     }
 
@@ -414,6 +414,11 @@ public static class Game
 
     public static void RunFrame()
     {
+        if (framesAhead > 0)
+        {
+            framesAhead--;
+            return;
+        }
         var result = GGPO.OK;
 
         for (int i = 0; i < ngs.players.Length; ++i)
@@ -425,7 +430,11 @@ public static class Game
                 result = GGPO.Session.AddLocalInput(player.handle, input);
             }
         }
-
+        if (result == GGPO.ERRORCODE_NOT_SYNCHRONIZED)
+        {
+            Game.Idle(15);
+            System.Threading.Thread.Sleep(15);
+        }
         // synchronize these inputs with ggpo. If we have enough input to proceed ggpo will
         // modify the input list with the correct inputs to use and return 1.
         if (GGPO.SUCCEEDED(result))

@@ -3,6 +3,7 @@ using RollBackExample;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using UnityEngine;
 
 [System.Serializable]
@@ -18,40 +19,36 @@ public class SyncTest : MonoBehaviour
     private RollbackWorld world;
 
 #if UNITY_EDITOR
-    public bool syncTestEnabled = false;
+    private bool syncTestEnabled = false;
     public Dictionary<int, List<object>> stateBackup = new Dictionary<int, List<object>>();
 #endif
-    public int[] inputs = new int[2] { 0, 0 };
+    private int[] inputs = new int[2] { 0, 0 };
     private RollbackLogic rollbackLogic;
 
-    public int editorPlayerIndex = 0;
-    public int otherPlayerIndex = 1;
-    public List<Connections> connections;
-    public GameObject visualizer;
+    private List<Connections> connections = new List<Connections> {
+        new Connections{port=11010, ip="127.0.0.1"},
+        new Connections{port=11015, ip="127.0.0.1"}
+    };
+    public List<GameObject> visualizer;
     int lastRenderedFrame = -10;
     private MovementComponent movCompForDesync;
-
-    public int PlayerIndex
-    {
-        get => Application.isEditor ? editorPlayerIndex : otherPlayerIndex;
-        set
-        {
-            if (Application.isEditor)
-            {
-                editorPlayerIndex = value;
-            }
-            else
-            {
-                otherPlayerIndex = value;
-            }
-        }
-    }
+    public int PlayerIndex { get; set; }
     // Start is called before the first frame update
-    void Start()
+    //void Start()
+    //{
+    //    StartGame();
+
+    //}
+
+    private void StartGame()
     {
         world = new RollbackWorld();
         for (int i = 0; i < connections.Count; i++)
         {
+            if (i != 0)
+            {
+                visualizer.Add(Instantiate(visualizer[0].gameObject));
+            }
             CreatePlayer(i);
         }
         CubeConverter[] components = GameObject.FindObjectsOfType<CubeConverter>();
@@ -61,7 +58,7 @@ public class SyncTest : MonoBehaviour
         }
 
         rollbackLogic = new RollbackLogic(world);
-        Game.RunFrameCallback = (ulong[] inputs) =>
+        Game.RunGameLogic = (ulong[] inputs) =>
         {
 #if UNITY_EDITOR
             if (syncTestEnabled)
@@ -79,12 +76,11 @@ public class SyncTest : MonoBehaviour
             }
 #endif
         };
-        Game.RunFrameCallback(new ulong[] { 0 });
+        Game.RunGameLogic(new ulong[] { 0 });
         rollbackLogic.CacheFields();
 
         Game.rollbackLogic = rollbackLogic;
         StartGgpo();
-
     }
 
 #if UNITY_EDITOR
@@ -168,6 +164,8 @@ public class SyncTest : MonoBehaviour
     {
         var remote_index = -1;
         var num_players = 0;
+        var ngs = new NonGameState();
+        Game.InitGame(ngs);
         for (int i = 0; i < connections.Count; ++i)
         {
             if (i != PlayerIndex && remote_index == -1)
@@ -182,34 +180,34 @@ public class SyncTest : MonoBehaviour
         }
         if (!connections[PlayerIndex].spectator)
         {
-            Game.InitGame(new NonGameState());
+
             var players = new List<GGPOPlayer>();
             for (int i = 0; i < connections.Count; ++i)
             {
-                var player = new GGPOPlayer
-                {
-                    player_num = players.Count + 1,
-                };
+                var player = new GGPOPlayer();
                 if (PlayerIndex == i)
                 {
                     player.type = GGPOPlayerType.GGPO_PLAYERTYPE_LOCAL;
-                    player.ip_address = "";
-                    player.port = 0;
-                }
-                else if (connections[i].spectator)
-                {
-                    player.type = GGPOPlayerType.GGPO_PLAYERTYPE_SPECTATOR;
-                    player.ip_address = connections[remote_index].ip;
-                    player.port = connections[remote_index].port;
+                    player.ip_address = connections[i].ip;
+                    player.port = connections[i].port;
                 }
                 else
                 {
                     player.type = GGPOPlayerType.GGPO_PLAYERTYPE_REMOTE;
-                    player.ip_address = connections[remote_index].ip;
-                    player.port = connections[remote_index].port;
+                    player.ip_address = connections[i].ip;
+                    player.port = connections[i].port;
                 }
+                player.player_num = i + 1;
                 players.Add(player);
             }
+            ngs.players = players.Select(x =>
+            {
+                return new PlayerConnectionInfo
+                {
+                    type = x.type,
+                    controllerId = x.player_num
+                };
+            }).ToArray();
 #if UNITY_EDITOR
             Game.StartGame(connections[PlayerIndex].port, num_players, players, 0, syncTestEnabled);
 #else
@@ -240,14 +238,44 @@ public class SyncTest : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (!started) return;
+        Game.Idle(2);
         Game.RunFrame();
-        Game.Idle(1);
 
         //TODO: do this in a better way
-        var t = (world.entities[0].body as Rectangle).dimensions.ToUnityVec() / 2.0f;
-        t.z = 0;
-        visualizer.transform.position = world.entities[0].body.position.ToUnityVec() - t;
+        for (int i = 0; i < connections.Count; i++)
+        {
+            var t = (world.entities[i].body as Rectangle).dimensions.ToUnityVec() / 2.0f;
+            t.z = 0;
+            visualizer[i].transform.position = world.entities[i].body.position.ToUnityVec() - t;
+        }
     }
 
-
+    private bool started = false;
+    private void OnGUI()
+    {
+        if (started) return;
+        for (int i = 0; i < connections.Count; i++)
+        {
+            if (GUI.Button(new Rect(new Vector2(0, (i + 1) * 20), new Vector2(200, 20)), "Play as this player"))
+            {
+                started = true;
+                PlayerIndex = i;
+                StartGame();
+            }
+            connections[i].port = ushort.Parse(GUI.TextField(new Rect(new Vector2(200, (i + 1) * 20), new Vector2(100, 20)), connections[i].port.ToString()));
+        }
+#if UNITY_EDITOR
+        if (GUI.Button(new Rect(new Vector2(0, 0), new Vector2(200, 20)), "Sync test"))
+        {
+            started = true;
+            PlayerIndex = 0;
+            syncTestEnabled = true;
+            connections = new List<Connections> {
+                new Connections{port=11010, ip="127.0.0.1"},
+            };
+            StartGame();
+        }
+#endif
+    }
 }

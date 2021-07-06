@@ -73,6 +73,7 @@ namespace FixedMath
         public static readonly Fix _0_25 = _1 / 4;
         public static readonly Fix _0_33 = _1 / 3;
         public static readonly Fix _0_50 = _1 / 2;
+        public static readonly Fix _0_66 = (_1 / 3)*2;
         public static readonly Fix _0_75 = _1 - _0_25;
         public static readonly Fix _0_95 = _1 - _0_05;
         public static readonly Fix _0_99 = _1 - _0_01;

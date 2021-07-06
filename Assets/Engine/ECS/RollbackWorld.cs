@@ -31,7 +31,8 @@ public class RollbackWorld
         {
             if (entity.receivesInput)
             {
-                entity.input = inputs[entity.inputIndex];
+                if(inputs.Length> entity.inputIndex)
+                    entity.input = inputs[entity.inputIndex];
             }
         }
     }

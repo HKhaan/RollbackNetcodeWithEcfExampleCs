@@ -7,6 +7,7 @@ using UnityEngine;
 [Serializable]
 public struct FixVector
 {
+
     public FixVector(Fix x, Fix y, Fix z)
     {
         this.x = x;
@@ -126,16 +127,13 @@ public struct FixVector
 
 
 
-    internal Vector3 ToUnityVec()
+    public Vector3 ToUnityVec()
     {
         //As float didn't work for some reason.
         return new Vector3((float)x.AsDouble, (float)y.AsDouble, (float)z.AsDouble);
     }
-    internal string ToString()
-    {
-        return $"({x.AsDouble}, {y.AsDouble}, {z.AsDouble})";
-    }
-    internal Quaternion ToQuat()
+    public new string ToString => $"({x.AsDouble}, {y.AsDouble}, {z.AsDouble})";
+    public Quaternion ToQuat()
     {
         return Quaternion.Euler(x.ToFloat(), y.ToFloat(), z.ToFloat());
     }
@@ -208,11 +206,12 @@ public class World
             {
                 continue;
             }
-            if (bodies[i].force.y > Fix._0_01) {
+            if (bodies[i].force.y > Fix._0_01)
+            {
                 bodies[i].grounded = false;
             }
-                //TODO: put this somewhere else where it can be configured
-                var steps = Fix._3;
+            //TODO: put this somewhere else where it can be configured
+            var steps = Fix._3;
             for (Fix s = Fix._0; s < steps; s += Fix._1)
             {
                 for (int ax = 0; ax < 2; ax++)
@@ -237,7 +236,8 @@ public class World
                         {
                             var beforeColCheckPos = bodies[i].position;
                             ExecuteCollisions(i, ax, cob2);
-                            if (!beforeColCheckPos.Equals(bodies[i].position)) {
+                            if (!beforeColCheckPos.Equals(bodies[i].position))
+                            {
                                 //Collision notifiers have changed our position so lets ignore the collisions
                                 bodies[i].force.x = Fix._0;
                                 bodies[i].force.z = Fix._0;
@@ -268,18 +268,37 @@ public class World
             foreach (var collideCallback in bodies[i].CollidedBottom)
             {
                 collideCallback.Invoke(cob2.Owner);
-                foreach (var collideCallback2 in cob2.CollidedTop)
-                    collideCallback2.Invoke(bodies[i].Owner);
             }
+            foreach (var collideCallback2 in cob2.CollidedTop)
+                collideCallback2.Invoke(bodies[i].Owner);
         }
         if (bodies[i].force.y > Fix._0 && ax == 0)
         {
             foreach (var collideCallback in bodies[i].CollidedTop)
             {
                 collideCallback.Invoke(cob2.Owner);
-                foreach (var collideCallback2 in cob2.CollidedBottom)
-                    collideCallback2.Invoke(bodies[i].Owner);
             }
+            foreach (var collideCallback2 in cob2.CollidedBottom)
+                collideCallback2.Invoke(bodies[i].Owner);
+        }
+
+        if (bodies[i].force.x < Fix._0 && ax == 1)
+        {
+            foreach (var collideCallback in bodies[i].CollidedLeft)
+            {
+                collideCallback.Invoke(cob2.Owner);
+            }
+            foreach (var collideCallback2 in cob2.CollidedRight)
+                collideCallback2.Invoke(bodies[i].Owner);
+        }
+        if (bodies[i].force.x > Fix._0 && ax == 1)
+        {
+            foreach (var collideCallback in bodies[i].CollidedRight)
+            {
+                collideCallback.Invoke(cob2.Owner);
+            }
+            foreach (var collideCallback2 in cob2.CollidedLeft)
+                collideCallback2.Invoke(bodies[i].Owner);
         }
     }
 }
