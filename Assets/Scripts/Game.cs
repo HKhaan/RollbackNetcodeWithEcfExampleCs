@@ -21,7 +21,6 @@ public static class Game
     public static Action<ulong[]> RunGameLogic;
     public static RollbackLogic rollbackLogic;
     public static GameStateComponent gameState;
-
     /*
 * game_begin_game_callback --
 *
@@ -372,7 +371,10 @@ public static class Game
             {
                 input |= (ulong)EInputTypes.run;
             }
-
+            if (UnityEngine.Input.GetKey(UnityEngine.KeyCode.E))
+            {
+                input |= (ulong)EInputTypes.hit;
+            }
 
         }
         else if (id == 1)

@@ -7,6 +7,7 @@ public enum EInputTypes
     down=4,
     right=8,
     jump= 16,
-    run= 32
+    run= 32,
+    hit= 64,
 
 }
